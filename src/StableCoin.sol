@@ -9,7 +9,7 @@ error StableCoin__InsufficientBalance();
 error StableCoin__InvalidAddress();
 
 contract StableCoin is ERC20, Ownable {
-    constructor() ERC20("StableCoin", "STC") Ownable(msg.sender) {}
+    constructor() ERC20("MyUSD", "mUSDC") Ownable(msg.sender) {}
 
     function burnFrom(address account, uint256 amount) external onlyOwner {
         uint256 balance = balanceOf(account);
