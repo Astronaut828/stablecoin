@@ -91,4 +91,37 @@ contract StableCoinEngine {
     function updatePrice(uint256 newPrice) external {
         s_pricePoint = newPrice; // Update the stored price point
     }
+
+    // Checks if a user's position can be liquidated
+    function isLiquidatable(address user) public view returns (bool) {
+        uint256 positionRatio = _calculatePositionRatio(user); // Calculate user's position ratio
+        return positionRatio < SAFE_POSITION_THRESHOLD; // Check if position is unsafe
+    }
+
+    // Allows liquidators to liquidate unsafe positions
+    function liquidate(address user) external {
+        if (!isLiquidatable(user)) {
+            revert Engine__NotLiquidatable(); // Revert if position is not liquidatable
+        }
+
+        uint256 userDebt = s_userMinted[user]; // Get user's minted amount
+        uint256 collateralValue = calculateCollateralValue(user); // Calculate user's collateral value
+
+        // Calculate liquidator's reward
+        uint256 liquidatorReward = (collateralValue * LIQUIDATOR_REWARD) / 100; // Calculate liquidator's reward
+
+        // Burn the user's minted stablecoins
+        i_stableCoin.burnFrom(user, userDebt); // Burn user's minted stablecoins
+
+        // Clear user's debt and collateral
+        s_userMinted[user] = 0; // Clear user's minted amount
+        s_userCollateral[user] = 0; // Clear user's collateral balance
+
+        // Transfer reward to liquidator and remaining collateral to user
+        payable(msg.sender).transfer(liquidatorReward); // Transfer reward to liquidator
+        payable(user).transfer(collateralValue - liquidatorReward); // Transfer remaining collateral to user
+
+        emit CollateralWithdrawn(user, msg.sender, liquidatorReward); // Emit event for collateral withdrawal
+        emit CollateralWithdrawn(user, user, collateralValue - liquidatorReward); // Emit event for collateral withdrawal
+    }
 }
