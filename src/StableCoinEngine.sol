@@ -31,12 +31,6 @@ contract StableCoinEngine {
         s_pricePoint = 3333e18; // Starting ETH price of $3333
     }
 
-    // Allows users to add collateral and mint stablecoins in a single transaction
-    function addCollateralAndMint(uint256 mintAmount) external payable {
-        addCollateral(); // Add collateral sent with the transaction
-        mintStableCoin(mintAmount); // Mint the specified amount of stablecoins
-    }
-
     // Allows users to add collateral to their account
     function addCollateral() public payable {
         if (msg.value == 0) {
@@ -44,6 +38,25 @@ contract StableCoinEngine {
         }
         s_userCollateral[msg.sender] += msg.value; // Update user's collateral balance
         emit CollateralAdded(msg.sender, msg.value); // Emit event for collateral addition
+    }
+
+    // Allows users to withdraw collateral as long as it doesn't make them liquidatable
+    function withdrawCollateral(uint256 amount) external {
+        if (amount == 0 || s_userCollateral[msg.sender] < amount) {
+            revert Engine__InvalidAmount(); // Revert if the amount is invalid
+        }
+
+        // Temporarily reduce the user's collateral to check if they remain safe
+        uint256 newCollateral = s_userCollateral[msg.sender] - amount;
+        s_userCollateral[msg.sender] = newCollateral;
+
+        // Validate the user's position after withdrawal
+        _validatePosition(msg.sender);
+
+        // Transfer the collateral to the user
+        payable(msg.sender).transfer(amount);
+
+        emit CollateralWithdrawn(msg.sender, msg.sender, amount); // Emit event for collateral withdrawal
     }
 
     // Allows users to mint stablecoins based on their collateral
